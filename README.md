@@ -1,75 +1,124 @@
 # gitops-k3s-demo-app
 
-Frontend (Next.js) and backend (Node/Express) source code, Dockerfiles, and scripts for building and loading images.
+Frontend (Next.js) and backend (Node/Express) source code, Dockerfiles, and helper scripts for building and publishing app images for k3s.
 
-## What this repo is for
+## Readme order
 
-This repo is the application layer. A client can clone it, build the images locally, and either:
-- push them to DockerHub with GitHub Actions, or
-- load them directly into a local k3s cluster for offline/local testing.
+This is step 2 of 3.
 
-## Tools to install
+1. `gitops-k3s-demo-infra`: create k3s cluster and ArgoCD
+2. `gitops-k3s-demo-app` (this repo): build/push/import app images
+3. `gitops-k3s-demo-manifests-`: deploy app with Helm/ArgoCD
 
-Required for the CI / local workflow:
-- Git
-- Docker Desktop or Docker Engine
-- Node.js 18+ and npm
-- Kubernetes CLI (`kubectl`)
-- Helm 3
-- k3s on the client laptop if they want to run the full stack locally
-- `sudo` access if they want to import local images into k3s
+## What this repo does
 
-Optional:
-- DockerHub account
-- GitHub account
+This is the application layer of the demo. Use it to:
 
-## Repo secrets used by GitHub Actions
+- build and push images to DockerHub for k3s pulls
+- build locally and load images into local k3s
 
-Add these secrets in the GitHub repository settings:
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
+## Supported environments
 
-## Local image build
+- Linux: supported directly
+- Windows: use a Linux VM for the k3s flow
+- macOS: use a Linux VM for the k3s flow
+
+All commands below should be run inside the Linux VM for the full k3s demo.
+
+## Prerequisites and installation commands
+
+- Git (check first: `git --version`)
+- Docker Engine (check first: `docker --version`)
+- Node.js 18+ and npm (check first: `node --version`)
+- kubectl (check first: `kubectl version --client`)
+- Helm 3 (check first: `helm version`)
+- DockerHub account if pushing images
+- GitHub repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` if using CI
 
 ```bash
-export DOCKERHUB_USER=yourdockerhubuser
+sudo apt update
+
+# Git
+sudo apt install -y git
+git --version
+
+# Docker Engine
+sudo apt install -y ca-certificates curl gnupg lsb-release
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+sudo docker run hello-world
+
+# Node.js + npm
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs
+node -v
+npm -v
+
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+rm kubectl
+kubectl version --client
+
+# Helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+helm version
+```
+
+## Image names
+
+- `${DOCKERHUB_USER}/gitops-demo-backend:${TAG}`
+- `${DOCKERHUB_USER}/gitops-demo-frontend:${TAG}`
+
+Hint: for this demo, you can set `DOCKERHUB_USER=ashmehroz1`.
+
+## 1. Build images
+
+Use this script to build backend and frontend Docker images with the selected tag.
+
+```bash
+## You have run these commands in your root directory :--> gitops-k3s-demo-app
+chmod +x scripts/*.sh
+export DOCKERHUB_USER=ashmehroz1
 export TAG=latest
 ./scripts/build.sh
 ```
 
-## Load images into local k3s without DockerHub
+## 2. Push images to DockerHub
 
-If the client is running k3s locally and does not want to push to DockerHub:
+Use this script to push the built backend and frontend images to DockerHub.
 
 ```bash
-export DOCKERHUB_USER=yourdockerhubuser
+## You have run these commands in your root directory :--> gitops-k3s-demo-app
+export DOCKERHUB_USER=ashmehroz1
+export TAG=latest
+docker login
+./scripts/push.sh
+```
+
+If GitHub Actions is used instead, push to `main` after adding DockerHub secrets in repo settings.
+
+## 3. Load images into local k3s
+
+Use this script to import both images into the local k3s container runtime when you are not pulling from DockerHub.
+
+```bash
+## You have run these commands in your root directory :--> gitops-k3s-demo-app
+export DOCKERHUB_USER=ashmehroz1
 export TAG=latest
 ./scripts/load-to-k3s.sh
 ```
 
-This imports both app images into the local k3s container runtime.
+## CI workflow
 
-## Push images to DockerHub with GitHub Actions
+The workflow in `.github/workflows/build-and-push.yml` builds and pushes backend and frontend images when `main` is updated.
 
-When the client pushes to `main`, the workflow in `.github/workflows/build-and-push.yml` will:
-- build the backend image
-- build the frontend image
-- push both to DockerHub
+## Troubleshooting
 
-That flow requires the GitHub secrets listed above.
-
-## Image names
-
-The app images use:
-- `${DOCKERHUB_USER}/gitops-demo-backend:${TAG}`
-- `${DOCKERHUB_USER}/gitops-demo-frontend:${TAG}`
-
-## Quick local test
-
-```bash
-export DOCKERHUB_USER=yourdockerhubuser
-export TAG=latest
-./scripts/local-run.sh
-```
-
-If the client is using k3s, deploy the manifests repo after importing the images.
+- If build fails, confirm `package-lock.json` exists in both app folders.
+- If k3s pods cannot pull images, push images to DockerHub or run `./scripts/load-to-k3s.sh`.
