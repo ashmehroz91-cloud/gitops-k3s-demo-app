@@ -27,20 +27,15 @@ All commands below should be run inside the Linux VM for the full k3s demo.
 
 ## Prerequisites and installation commands
 
-- Git (check first: `git --version`)
 - Docker Engine (check first: `docker --version`)
 - Node.js 18+ and npm (check first: `node --version`)
 - kubectl (check first: `kubectl version --client`)
-- Helm 3 (check first: `helm version`)
 - DockerHub account if pushing images
 - GitHub repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` if using CI
 
 ```bash
 sudo apt update
 
-# Git
-sudo apt install -y git
-git --version
 
 # Docker Engine
 sudo apt install -y ca-certificates curl gnupg lsb-release
@@ -95,9 +90,8 @@ Use this script to push the built backend and frontend images to DockerHub.
 
 ```bash
 ## You have run these commands in your root directory :--> gitops-k3s-demo-app
-export DOCKERHUB_USER=ashmehroz1
-export TAG=latest
-docker login
+docker login -u ashmehroz1
+password : h*A3Tf&&quT_%Tf
 ./scripts/push.sh
 ```
 
@@ -109,8 +103,6 @@ Use this script to import both images into the local k3s container runtime when 
 
 ```bash
 ## You have run these commands in your root directory :--> gitops-k3s-demo-app
-export DOCKERHUB_USER=ashmehroz1
-export TAG=latest
 ./scripts/load-to-k3s.sh
 ```
 
